@@ -1,75 +1,47 @@
 /*
-  CellularMIoT.ino - Example app for Massive IoT
+  main.ino - Example app for Massive IoT
   Samid Tennakoon <samid.tennakoon@ericsson.com>
-  Updated: 26 Sep 2017
+  Updated: 18 Jan 2018
 */
 
 //#include "GemaltoModem.h"
-//#include "uBloxModem.h"
-#include "SimcomModem.h"
-//#include <SimpleDHT.h>
+#include "uBloxModem.h"
+//#include "SimcomModem.h"
+#include <Wire.h>
+#include <Sodaq_HTS221.h>
 
 //GemaltoModem modem;
-//uBloxModem modem;
-SimcomModem modem;
+uBloxModem modem;
+//SimcomModem modem;
 
 //lab SIM = "stm-iot", production SIM = "m2minternet"
 //char apn[] = "m2minternet";
-//char apn[] = "e-ideas";
+//char apn[] = "stm-iot";
 char apn[] = "hicard";
 char server[] = "203.126.155.248"; // iotlab.zmalloc.org
-int once = 1;
-int counter = 0;
 
-//const int trigPin = 8;
-//const int echoPin = 9;
-//int pinDHT22 = 8;
-//SimpleDHT22 dht22;
+int counter = 0;
+Sodaq_HTS221 s1;
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  Wire.begin();
+  if (s1.init()) { // enable HTS221 sensor (temp/humidity)
+    s1.enableSensor();
+  }
   modem.init(apn, server);
-  //Serial.begin(9600);
 }
 
 void loop() {
-  char v1[10];
-  byte temperature;
-  byte humidity;
-  int err;
-  //if (!once) modem.reinit();
-
-  //  err = dht22.read(pinDHT22, &temperature, &humidity, NULL);
-  //  sprintf(v1, "%d", temperature); // combine var1, var2, etc to a string
-  //Serial.println(v1);
-
-
-
-  //float value = analogRead(A0);
-  //int a1 = (int) (value / 1023*200); // scale the sensor reading 0 - 100
+  char v1[15];
+ 
   counter = counter + 1;
-  sprintf(v1, "%d", counter); // combine var1, var2, etc to a string
-
-
-  /*
-    long duration;
-    int distance;
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    // Sets the trigPin on HIGH state for 10 micro seconds
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-    // Reads the echoPin, returns the sound wave travel time in microseconds
-    duration = pulseIn(echoPin, HIGH);
-    // Calculating the distance
-    distance= duration*0.034/2;
-    sprintf(v1, "%d", 27);
-  */
-
+  sprintf(v1, "%d;%f;%f", counter, s1.readHumidity(), s1.readTemperature()); // combine var1, var2, etc to a string
+  digitalWrite(LED_BUILTIN, HIGH);
   modem.publish(v1);
-
-  //modem.off();
-  delay(2000);
-  once = 0;
-
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(30000);
 }
+
+
