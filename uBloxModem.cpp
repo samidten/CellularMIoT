@@ -1,6 +1,6 @@
 /*
   uBloxModem.cpp - Modem driver for uBlox SARA N200 NB-IoT modem
-  Tested with uBlox N200 firmware V100R100C10B656
+  Tested with uBlox N200 firmware V100R100C10B657SP2
   Samid Tennakoon <samid.tennakoon@ericsson.com>
 
   TODO:
@@ -25,24 +25,28 @@ void uBloxModem::on()
 
   DEBUG_STREAM.begin(9600);
   MODEM_STREAM.begin(9600);
-  while(DEBUG_STREAM.available());
-  // keep the module ON state
-  pinMode(7, OUTPUT); // POWER PIN
-  digitalWrite(7, HIGH);
 
-  // TODO: only set these parameters if they are not set; otherwise continue to setup without restart
-  done = true;
+  pinMode(powerPin, OUTPUT); // POWER PIN
+  digitalWrite(powerPin, HIGH);
+
+  writeData(1000, "AT+CPSMS=0"); // disable PSM for now 
+  writeData(1000, "AT+CEDRXS=0,5,\"0101\""); // disable eDRX for now
+  writeData(1000, "AT+NPSMR=1"); // enable PSM status reporting
+
   while(!done) {
-    if (writeData(1000, "AT+NCONFIG=AUTOCONNECT,TRUE") != SUCCESS) break;
-    if (writeData(1000, "AT+NCONFIG=CR_0354_0338_SCRAMBLING,FALSE") != SUCCESS) break;
-    if (writeData(1000, "AT+NCONFIG=CR_0859_SI_AVOID,FALSE") != SUCCESS) break;
+    if (writeData(1000, "AT+NCONFIG=\"AUTOCONNECT\",\"TRUE\"") != SUCCESS) break;
+    if (writeData(1000, "AT+NCONFIG=\"CR_0354_0338_SCRAMBLING\",\"TRUE\"") != SUCCESS) break;
+    if (writeData(1000, "AT+NCONFIG=\"CR_0859_SI_AVOID\",\"TRUE\"") != SUCCESS) break;
+    if (writeData(1000, "AT+NCONFIG=\"COMBINE_ATTACH\",\"TRUE\"") != SUCCESS) break;
+    if (writeData(1000, "AT+NCONFIG=\"CELL_RESELECTION\",\"TRUE\"") != SUCCESS) break;
+    if (writeData(1000, "AT+NCONFIG=\"ENABLE_BIP\",\"FALSE\"") != SUCCESS) break;
     done = true;
   }
   if (!done) {
     if (DEBUG==1) _debugStream->println(F("ERROR: Something went wrong during on"));
     if (DEBUG==1) _debugStream->println(replybuffer);
   }
-  //restartWarm();
+  restartWarm();
   setup();
   prepStage1();
 }
@@ -54,11 +58,11 @@ void uBloxModem::prepStage1()
   bool done = false;
 
   while(!done) {
-    if (writeData(1000, "AT+CGSN=2") != SUCCESS) break; // IMEI
-    modemInfo1 = middle("+CGSN:", "OK");
+    if (writeData(1000, "AT+CGSN=1") != SUCCESS) break; // IMEI
+    modemInfo1 = middle("+CGSN: ", "OK");
     modemInfo1 += ";";
     if (writeData(1000, "AT+CIMI") != SUCCESS) break; // IMSI
-    modemInfo1 += middle("", "OK");
+    modemInfo1 += middle("\n", "OK");
     modemInfo1 += ";";
     modemInfo1 += "NB-IoT;";
     if (DEBUG==2) _debugStream->println(modemInfo1);
@@ -71,7 +75,7 @@ void uBloxModem::prepStage1()
 
 }
 
-// fetch semi-static attributes
+// fetch semi-static attributes in attach mode
 void uBloxModem::prepStage2()
 {
   bool done = false;
@@ -91,6 +95,9 @@ void uBloxModem::prepStage2()
     tmp = middle("+CSQ:", "OK");
     tmp = splitString(tmp, ',', 0); // RSSI
     //_debugStream->println(tmp);
+ //   if (tmp.toInt() == 99) {
+ //     restartWarm();
+  //  }
     int rssi = -113 + 2 * tmp.toInt(); // map CSQ to RSSI
     _debugStream->println(rssi);
     tmp = String(rssi);
@@ -109,7 +116,7 @@ void uBloxModem::prepStage2()
 void uBloxModem::test1()
 {
 
-  if (writeData(2000, "AT") == SUCCESS) {
+  if (writeData(2000, "AT+CSQ") == SUCCESS) {
     _debugStream->println("### AT is OK!");
     _debugStream->println(replybuffer);
   }
@@ -128,16 +135,17 @@ void uBloxModem::setup()
     delay(1000);
     sprintf(cmd, "AT+CGDCONT=0,\"IP\",\"%s\"", _apn);
     if (writeData(1000, cmd) != SUCCESS) break;
-    if (writeData(5000, "AT+CFUN=1") != SUCCESS) break;
+//    if (writeData(5000, "AT+CFUN=1") != SUCCESS) break;
     done = true;
   }
   if (!done) {
     if (DEBUG>=1) _debugStream->println(F("ERROR: Something went wrong during setup"));
     if (DEBUG>=1) _debugStream->println(replybuffer);
+      restartWarm();
   }
   else {
-    restartWarm();
-    delay(2000); // give some space for modem setup to settle
+    //restartWarm();
+    //delay(2000); // give some space for modem setup to settle
     checkConnection();
   }
 }
@@ -159,14 +167,14 @@ void uBloxModem::publish(char* data)
  }
 
  len = strlen(buf);
- sprintf(tmp, "AT+NSOST=0,%s,5121,%d,%s", _server, len / 2, buf);
+ sprintf(tmp, "AT+NSOST=0,\"%s\",5121,%d,\"%s\"", _server, len / 2, buf);
  //_debugStream->println(tmp);
 
   while(!done) {
     //AT+NSOCR=DGRAM,17,42000,1
     //AT+NSOCL=0
     //AT+NSOST=0,10.1.1.1,5121,4,ABCDEF
-    if (writeData(1000, "AT+NSOCR=DGRAM,17,42000,1") != SUCCESS) break;
+    if (writeData(1000, "AT+NSOCR=\"DGRAM\",17,42000,1") != SUCCESS) break;
     if (writeData(3000, tmp) != SUCCESS) break;
     if (writeData(1000, "AT+NSOCL=0") != SUCCESS) break;
     done = true;
@@ -174,6 +182,8 @@ void uBloxModem::publish(char* data)
   if (!done) {
     if (DEBUG==1) _debugStream->println(F("ERROR: Something went wrong during publish"));
     if (DEBUG==1) _debugStream->println(replybuffer);
+    restartWarm();
+    setup();
   }
 }
 
@@ -181,18 +191,30 @@ void uBloxModem::publish(char* data)
 // TODO: maybe check IP as well?
 void uBloxModem::checkConnection()
 {
-  int retry = 12; // lets try 1 min to attach before bailing
+  digitalWrite(LED_BUILTIN, HIGH);
+  int retry = 10; // lets try 1min to attach before bailing
   while(retry--) {
     writeData(1000, "AT+CSQ");
-    if (writeData(1000, "AT+CGATT?", "+CGATT:1\r\n") == CUSTOM) break;
+    if (writeData(1000, "AT+CGATT?", "+CGATT: 1\r\n") == CUSTOM) break;
     if (retry == 0) break;
     delay(5000);
   }
-  if (retry == 0 && DEBUG == 1) _debugStream->println("ERROR: Something wrong with connection");
+  if (retry == 0 && DEBUG >= 1) {
+    _debugStream->println("ERROR: Something wrong with connection");
+    restartWarm();
+    setup();
+  }
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(100); // let the serial settle
+  
+  //writeData(1000, "AT+CPSMS=1,,,\"10100101\",\"00000001\""); // enable PSM; active period only 1s
+
 }
 
 void uBloxModem::restartWarm()
 {
+  //writeData(5000, "AT+CFUN=0");
+  //writeData(5000, "AT+CFUN=1");
    // takes ~5 seconds to restart this modem
   if(writeData(10000, "AT+NRB") == SUCCESS) {
     if (DEBUG>=1) _debugStream->println("Restart OK!");

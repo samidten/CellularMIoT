@@ -5,7 +5,6 @@
 
 #include "CellularModem.h"
 
-
 // Constructor
 CellularModem::CellularModem()
 {
@@ -21,8 +20,19 @@ void CellularModem::init(const char* apn, const char* server)
    on();
 }
 
+/*
+
+void CellularModem::softwareReset(void) 
+{
+  SCSS_REG_VAL(SCSS_SS_CFG) |= ARC_HALT_REQ_A;
+  SCSS_REG_VAL(SCSS_RSTC) = RSTC_WARM_RESET;
+}
+
+*/
+
 String CellularModem::middle(String a, String b)
 {
+  
   String str(replybuffer);
 
   int locStart = str.indexOf(a);
@@ -92,7 +102,7 @@ eModemState CellularModem::readBuffer(uint16_t timeout, const char* resp)
     }
 
     replybuffer[idx] = '\0'; // insert dummy null char before we start comparing
-
+    //flushBuffer();
 
     if (resp[0] == '\0' && strstr(replybuffer, "OK\r\n")) {
       if (DEBUG==2) DEBUG_PRINTLN(F("RECVD OK!"));

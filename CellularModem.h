@@ -13,8 +13,12 @@
 
 #define DEBUG_STREAM Serial
 #define MODEM_STREAM Serial1
+#define powerPin 7
 
 #define DEBUG 2 // 1=level 1 (INFO), 2=level 2 (DETAIL)
+
+#define SCSS_RSTC 0x570
+#define RSTC_WARM_RESET (1 << 1)
 
 enum eModemState
 {
@@ -38,6 +42,7 @@ public:
   virtual void test1() {};
   virtual void test2() {};
   void flushBuffer();
+  //void softwareReset(void); 
   String middle(String a, String b);
   String splitString(String data, char separator, int index);
   eModemState readBuffer(uint16_t timeout, const char* resp);

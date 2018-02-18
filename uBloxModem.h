@@ -1,6 +1,6 @@
 /*
   uBloxModem.h - Modem driver for uBlox SARA N200 NB-IoT modem
-  Tested with uBlox N200 firmware V100R100C10B656
+  Tested with uBlox N200 firmware V100R100C10B657SP2
   Samid Tennakoon <samid.tennakoon@ericsson.com>
 */
 

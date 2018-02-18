@@ -175,7 +175,7 @@ void SimcomModem::checkConnection()
 // check for signal level
 void SimcomModem::checkConnection2()
 {
-  int retry = 12; // lets try 1 min to attach before bailing
+  int retry = 6; // lets try 1 min to attach before bailing
   while(retry--) {
     if (writeData(1000, "AT+CSQ", "+CSQ: 99,99") != CUSTOM) break;
     //if (writeData(1000, "AT+CGATT?", "+CGATT: 1\r\n") == CUSTOM) break;
@@ -189,11 +189,14 @@ void SimcomModem::checkConnection2()
 void SimcomModem::restartWarm()
 {
 
-  pinMode(2, OUTPUT); 
-  digitalWrite(2, HIGH);
+  MODEM_STREAM.println("AT+CFUN=1,1");
+  delay(5000);   // takes ~5 seconds to restart this 
+  MODEM_STREAM.begin(115200);
+  while(!MODEM_STREAM.available());
+  MODEM_STREAM.println("AT+IPR=57600");
   delay(1000);
-  digitalWrite(2, LOW);
-  delay(5000);   // takes ~5 seconds to restart this modem
+  MODEM_STREAM.begin(57600);   
+
   if(writeData(10000, "AT") == SUCCESS) {
     if (DEBUG>=1) _debugStream->println("Restart OK!");
   }
